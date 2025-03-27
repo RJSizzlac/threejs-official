@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>three.js webgl - shaders - ocean - gerstner wave</title>
-        <meta charset="utf-8" />
-        <meta
-            name="viewport"
-            content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
-        />
-        <link type="text/css" rel="stylesheet" href="main.css" />
+	<head>
+		<title>three.js webgl - shaders - ocean</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="../examples/main.css">
+	</head>
+	<body>
 
-        <script id="vertexShader" type="x-shader/x-vertex">
+		<div id="container"></div>
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - webgl ocean
+		</div>
+
+
+		<script id="vertexShader" type="x-shader/x-vertex">
             uniform mat4 textureMatrix;
             uniform float time;
 
@@ -133,16 +138,20 @@
                 #include <fog_fragment>
             }
         </script>
-    </head>
-    <body>
-        <div id="container"></div>
-        <div id="info">
-            <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>
-            - webgl ocean - gerstner wave
-        </div>
 
-        <script type="module">
-            import * as THREE from 'three';
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
 
 			import Stats from 'three/addons/libs/stats.module.js';
 
@@ -150,16 +159,22 @@
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 			import { Water } from 'three/addons/objects/Water.js';
 			import { Sky } from 'three/addons/objects/Sky.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-            let container, stats;
-            let camera, scene, renderer;
-            let controls, water, sun;
-            let clock, delta, boxes, numBoxes;
+			let container, stats;
+			let camera, scene, renderer;
+			let controls, water, sun, mesh;
+			let clock, delta, boxes, numBoxes;
+			let rects, numRects;
+			let boatNum, boats;
 
             const waves = {
-            	A: { direction: 0, steepness: 0.4, wavelength: 60 },
-            	B: { direction: 30, steepness: 0.4, wavelength: 30 },
-            	C: { direction: 60, steepness: 0.4, wavelength: 15 },
+            	//A: { direction: 0, steepness: 0.4, wavelength: 60 },  //Original Values
+				A: { direction: 0, steepness: 0, wavelength: 1 },
+            	//B: { direction: 30, steepness: 0.4, wavelength: 30 },  //Original Values
+				B: { direction: 30, steepness: 0, wavelength: 1 },
+            	//C: { direction: 60, steepness: 0.4, wavelength: 15 },  //Original Values
+				C: { direction: 10, steepness: 0.1, wavelength: 19 },
             };
 
             function getWaveInfo( x, z, time ) {
@@ -215,40 +230,114 @@
 
             }
 
-            init();
-            animate();
+			//Rectangle Delta
+			function updateRectangle( delta ) {
 
-            function init() {
+				const t = water.material.uniforms[ 'time' ].value;
+				boats.forEach( ( c ) => {
 
-            	container = document.getElementById( 'container' );
+					const waveInfo = getWaveInfo( c.position.x, c.position.z, t );
+					c.position.y = waveInfo.position.y - 0.48;
+					const quat = new THREE.Quaternion().setFromEuler(
+						new THREE.Euler( waveInfo.normal.x, waveInfo.normal.y, waveInfo.normal.z )
+					);
+					c.quaternion.rotateTowards( quat, delta * 0.5 );
+				}) ;
 
-            	//
+				}
 
-            	renderer = new THREE.WebGLRenderer();
-            	renderer.setPixelRatio( window.devicePixelRatio );
-            	renderer.setSize( window.innerWidth, window.innerHeight );
-            	renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            	container.appendChild( renderer.domElement );
 
-            	//
+				//Boat Delta
+			function updateBoat( delta ) {
 
-            	scene = new THREE.Scene();
+				const t = water.material.uniforms[ 'time' ].value;
+				rects.forEach( ( d ) => {
 
-            	camera = new THREE.PerspectiveCamera(
-            		55,
-            		window.innerWidth / window.innerHeight,
-            		1,
-            		20000
-            	);
-            	camera.position.set( 30, 30, 100 );
+					const waveInfo = getWaveInfo( d.position.x, d.position.z, t );
+					d.position.y = waveInfo.position.y;
+					const quat = new THREE.Quaternion().setFromEuler(
+						new THREE.Euler( waveInfo.normal.x, waveInfo.normal.y, waveInfo.normal.z )
+					);
+					d.quaternion.rotateTowards( quat, delta * 0.5 );
+				}) ;
 
-            	//
+				}
 
-            	sun = new THREE.Vector3();
 
-            	// floating boxes
-            	const boxGeometry = new THREE.BoxGeometry( 10, 10, 10 );
-            	numBoxes = 10;
+			init();
+
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+				//
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setAnimationLoop( animate );
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.toneMappingExposure = 0.5;
+				container.appendChild( renderer.domElement );
+
+				//
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( 55, window.innerWidth / window.innerHeight, 1, 20000 );
+				camera.position.set( 5, 5, 10 );
+
+				//
+
+				sun = new THREE.Vector3();
+
+
+				//Arrow Boat
+				/*
+				const loader = new GLTFLoader().setPath( 'models/gltf/arrowBoat/glTF/' );
+				loader.load( 'arrowBoat.gltf', async function ( gltf ) {
+					const arrowBoat = gltf.scene;
+					// wait until the model can be added to the scene without blocking due to shader compilation
+					await renderer.compileAsync( arrowBoat, camera, scene );
+					//arrowBoat.position.set(0, -0.48, 0);
+					scene.add( arrowBoat );
+
+					render();
+			
+				} );
+				*/
+				//Boat Making
+				const loader = new GLTFLoader().setPath( 'models/gltf/arrowBoat/glTF/' );
+				boatNum = 1;
+				boats = [];
+				for (let i = 0; i < boatNum; i++ ){
+				loader.load( 'arrowBoat.gltf', async function ( gltf ) {
+					const arrowBoat = gltf.scene;
+					await renderer.compileAsync( arrowBoat, camera, scene );
+					//arrowBoat.position.set( Math.random() * 50 - 25, 0, Math.random() * 50 - 25 );
+					scene.add( arrowBoat );
+					boats.push( arrowBoat );
+
+					render();
+			
+				} );
+			}
+
+				// floating rectangles
+				const rectGeometry = new THREE.BoxGeometry(5,0.5,10);
+				numRects = 1;
+				rects = [];
+				for (let i = 0; i < numRects; i++ ){
+					const getWrecked = new THREE.Mesh( rectGeometry, new THREE.MeshStandardMaterial( { roughness: 0, color:0xd5539f } ));
+					getWrecked.position.set( Math.random() * 50 - 25, 0, Math.random() * 50 - 25 );
+					scene.add( getWrecked );
+					rects.push( getWrecked );
+				}
+				
+
+				// floating boxes
+            	const boxGeometry = new THREE.BoxGeometry( 5, 5, 5 );
+            	numBoxes = 1;
             	boxes = [];
 
             	for ( let i = 0; i < numBoxes; i ++ ) {
@@ -257,136 +346,152 @@
             			boxGeometry,
             			new THREE.MeshStandardMaterial( { roughness: 0 } )
             		);
-            		box.position.set( Math.random() * 200 - 100, 0, Math.random() * 200 - 100 );
+            		box.position.set( Math.random() * 100 - 50, 0, Math.random() * 100 - 50 );
             		scene.add( box );
             		boxes.push( box );
 
             	}
 
-            	// Water
 
-            	const waterGeometry = new THREE.PlaneGeometry( 2048, 2048, 512, 512 );
+				// Water
 
-            	water = new Water( waterGeometry, {
-            		textureWidth: 512,
-            		textureHeight: 512,
-            		waterNormals: new THREE.TextureLoader().load( '../examples/textures/waternormals.jpg', function ( texture ) {
+				//const waterGeometry = new THREE.PlaneGeometry( 10000, 10000 );
+				const waterGeometry = new THREE.PlaneGeometry( 2048, 2048, 512, 512 );
 
-            				texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+				water = new Water(
+					waterGeometry,
+					{
+						textureWidth: 512,
+						textureHeight: 512,
+						waterNormals: new THREE.TextureLoader().load( '../examples/textures/waternormals.jpg', function ( texture ) {
 
-            			}
-            		),
-            		sunDirection: new THREE.Vector3(),
-            		sunColor: 0xffffff,
-            		waterColor: 0x001e0f,
-            		distortionScale: 3.7,
-            		fog: scene.fog !== undefined,
-            	} );
-            	water.rotation.x = - Math.PI / 2;
+							texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 
-            	water.material.onBeforeCompile = function ( shader ) {
+						} ),
+						sunDirection: new THREE.Vector3(),
+						sunColor: 0xffffff,
+						waterColor: 0x001e0f,
+						distortionScale: 0.4,
+						fog: scene.fog !== undefined
+					}
+				);
 
-            		shader.uniforms.waveA = {
-            			value: [
-            				Math.sin( ( waves.A.direction * Math.PI ) / 180 ),
-            				Math.cos( ( waves.A.direction * Math.PI ) / 180 ),
-            				waves.A.steepness,
-            				waves.A.wavelength,
-            			],
-            		};
-            		shader.uniforms.waveB = {
-            			value: [
-            				Math.sin( ( waves.B.direction * Math.PI ) / 180 ),
-            				Math.cos( ( waves.B.direction * Math.PI ) / 180 ),
-            				waves.B.steepness,
-            				waves.B.wavelength,
-            			],
-            		};
-            		shader.uniforms.waveC = {
-            			value: [
-            				Math.sin( ( waves.C.direction * Math.PI ) / 180 ),
-            				Math.cos( ( waves.C.direction * Math.PI ) / 180 ),
-            				waves.C.steepness,
-            				waves.C.wavelength,
-            			],
-            		};
-            		shader.vertexShader = document.getElementById( 'vertexShader' ).textContent;
-            		shader.fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
+				water.rotation.x = - Math.PI / 2;
 
-            	};
+				water.material.onBeforeCompile = function ( shader ) {
 
-            	scene.add( water );
+					shader.uniforms.waveA = {
+						value: [
+							Math.sin( ( waves.A.direction * Math.PI ) / 180 ),
+							Math.cos( ( waves.A.direction * Math.PI ) / 180 ),
+							waves.A.steepness,
+							waves.A.wavelength,
+						],
+					};
+					shader.uniforms.waveB = {
+						value: [
+							Math.sin( ( waves.B.direction * Math.PI ) / 180 ),
+							Math.cos( ( waves.B.direction * Math.PI ) / 180 ),
+							waves.B.steepness,
+							waves.B.wavelength,
+						],
+					};
+					shader.uniforms.waveC = {
+						value: [
+							Math.sin( ( waves.C.direction * Math.PI ) / 180 ),
+							Math.cos( ( waves.C.direction * Math.PI ) / 180 ),
+							waves.C.steepness,
+							waves.C.wavelength,
+						],
+					};
+					shader.vertexShader = document.getElementById( 'vertexShader' ).textContent;
+					shader.fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
 
-            	// Skybox
+					};
 
-            	const sky = new Sky();
-            	sky.scale.setScalar( 10000 );
-            	scene.add( sky );
+				scene.add( water );
 
-            	const skyUniforms = sky.material.uniforms;
+				// Skybox
 
-            	skyUniforms[ 'turbidity' ].value = 10;
-            	skyUniforms[ 'rayleigh' ].value = 2;
-            	skyUniforms[ 'mieCoefficient' ].value = 0.005;
-            	skyUniforms[ 'mieDirectionalG' ].value = 0.8;
+				const sky = new Sky();
+				sky.scale.setScalar( 10000 );
+				scene.add( sky );
 
-            	const parameters = {
-            		elevation: 2,
-            		azimuth: 180,
-            	};
+				const skyUniforms = sky.material.uniforms;
 
-            	const pmremGenerator = new THREE.PMREMGenerator( renderer );
+				skyUniforms[ 'turbidity' ].value = 10;
+				skyUniforms[ 'rayleigh' ].value = 2;
+				skyUniforms[ 'mieCoefficient' ].value = 0.005;
+				skyUniforms[ 'mieDirectionalG' ].value = 0.8;
 
-            	function updateSun() {
+				const parameters = {
+					elevation: 8,
+					azimuth: 180
+				};
 
-            		const phi = THREE.MathUtils.degToRad( 90 - parameters.elevation );
-            		const theta = THREE.MathUtils.degToRad( parameters.azimuth );
+				const pmremGenerator = new THREE.PMREMGenerator( renderer );
+				const sceneEnv = new THREE.Scene();
 
-            		sun.setFromSphericalCoords( 1, phi, theta );
+				let renderTarget;
 
-            		sky.material.uniforms[ 'sunPosition' ].value.copy( sun );
-            		water.material.uniforms[ 'sunDirection' ].value.copy( sun ).normalize();
+				function updateSun() {
 
-            		scene.environment = pmremGenerator.fromScene( sky ).texture;
+					const phi = THREE.MathUtils.degToRad( 90 - parameters.elevation );
+					const theta = THREE.MathUtils.degToRad( parameters.azimuth );
 
-            	}
+					sun.setFromSphericalCoords( 1, phi, theta );
 
-            	updateSun();
+					sky.material.uniforms[ 'sunPosition' ].value.copy( sun );
+					water.material.uniforms[ 'sunDirection' ].value.copy( sun ).normalize();
 
-            	//
+					if ( renderTarget !== undefined ) renderTarget.dispose();
 
-            	controls = new OrbitControls( camera, renderer.domElement );
-            	controls.maxPolarAngle = Math.PI * 0.495;
-            	controls.target.set( 0, 10, 0 );
-            	controls.minDistance = 40.0;
-            	controls.maxDistance = 200.0;
-            	controls.update();
+					sceneEnv.add( sky );
+					renderTarget = pmremGenerator.fromScene( sceneEnv );
+					scene.add( sky );
 
-            	//
+					scene.environment = renderTarget.texture;
 
-            	stats = new Stats();
-            	container.appendChild( stats.dom );
+				}
 
-            	// GUI
+				updateSun();
 
-            	const gui = new GUI();
+				//
 
-            	const folderSky = gui.addFolder( 'Sky' );
-            	folderSky.add( parameters, 'elevation', 0, 90, 0.1 ).onChange( updateSun );
-            	folderSky.add( parameters, 'azimuth', - 180, 180, 0.1 ).onChange( updateSun );
-            	folderSky.open();
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.maxPolarAngle = Math.PI * 0.495;
+				controls.target.set( 0, 1, 0 );
+				controls.minDistance = 5.0;
+				controls.maxDistance = 100.0;
+				controls.update();
 
-            	const waterUniforms = water.material.uniforms;
+				//
 
-            	const folderWater = gui.addFolder( 'Water' );
-            	folderWater
-            		.add( waterUniforms.distortionScale, 'value', 0, 8, 0.1 )
-            		.name( 'distortionScale' );
-            	folderWater.add( waterUniforms.size, 'value', 0.1, 10, 0.1 ).name( 'size' );
-            	folderWater.add( water.material, 'wireframe' );
-            	folderWater.open();
+				stats = new Stats();
+				container.appendChild( stats.dom );
 
-            	const waveAFolder = gui.addFolder( 'Wave A' );
+				// GUI
+
+				const gui = new GUI();
+
+				const folderSky = gui.addFolder( 'Sky' );
+				folderSky.add( parameters, 'elevation', 0, 90, 0.1 ).onChange( updateSun );
+				folderSky.add( parameters, 'azimuth', - 180, 180, 0.1 ).onChange( updateSun );
+				folderSky.open();
+
+				const waterUniforms = water.material.uniforms;
+
+				const folderWater = gui.addFolder( 'Water' );
+				folderWater.add( waterUniforms.distortionScale, 'value', 0, 8, 0.1 ).name( 'distortionScale' );
+				//folderWater.add( waterUniforms.size, 'value', 0.1, 10, 0.1 ).name( 'size' );
+				folderWater.open();
+
+				water.material.uniforms[ 'size' ].value += 10;
+
+
+				//Gerstner UI
+
+				const waveAFolder = gui.addFolder( 'Wave A' );
             	waveAFolder
             		.add( waves.A, 'direction', 0, 359 )
             		.name( 'Direction' )
@@ -396,81 +501,81 @@
             			water.material.uniforms.waveA.value[ 0 ] = Math.sin( x );
             			water.material.uniforms.waveA.value[ 1 ] = Math.cos( x );
             
-		} );
-            	waveAFolder
-            		.add( waves.A, 'steepness', 0, 1, 0.1 )
-            		.name( 'Steepness' )
-            		.onChange( ( v ) => {
+					} );
+							waveAFolder
+								.add( waves.A, 'steepness', 0, 1, 0.1 )
+								.name( 'Steepness' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveA.value[ 2 ] = v;
-            
-		} );
-            	waveAFolder
-            		.add( waves.A, 'wavelength', 1, 100 )
-            		.name( 'Wavelength' )
-            		.onChange( ( v ) => {
+									water.material.uniforms.waveA.value[ 2 ] = v;
+						
+					} );
+							waveAFolder
+								.add( waves.A, 'wavelength', 1, 100 )
+								.name( 'Wavelength' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveA.value[ 3 ] = v;
-            
-		} );
-            	waveAFolder.open();
+									water.material.uniforms.waveA.value[ 3 ] = v;
+						
+					} );
+							waveAFolder.open();
 
-            	const waveBFolder = gui.addFolder( 'Wave B' );
-            	waveBFolder
-            		.add( waves.B, 'direction', 0, 359 )
-            		.name( 'Direction' )
-            		.onChange( ( v ) => {
+							const waveBFolder = gui.addFolder( 'Wave B' );
+							waveBFolder
+								.add( waves.B, 'direction', 0, 359 )
+								.name( 'Direction' )
+								.onChange( ( v ) => {
 
-            			const x = ( v * Math.PI ) / 180;
-            			water.material.uniforms.waveB.value[ 0 ] = Math.sin( x );
-            			water.material.uniforms.waveB.value[ 1 ] = Math.cos( x );
-            
-		} );
-            	waveBFolder
-            		.add( waves.B, 'steepness', 0, 1, 0.1 )
-            		.name( 'Steepness' )
-            		.onChange( ( v ) => {
+									const x = ( v * Math.PI ) / 180;
+									water.material.uniforms.waveB.value[ 0 ] = Math.sin( x );
+									water.material.uniforms.waveB.value[ 1 ] = Math.cos( x );
+						
+					} );
+							waveBFolder
+								.add( waves.B, 'steepness', 0, 1, 0.1 )
+								.name( 'Steepness' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveB.value[ 2 ] = v;
-            
-		} );
-            	waveBFolder
-            		.add( waves.B, 'wavelength', 1, 100 )
-            		.name( 'Wavelength' )
-            		.onChange( ( v ) => {
+									water.material.uniforms.waveB.value[ 2 ] = v;
+						
+					} );
+							waveBFolder
+								.add( waves.B, 'wavelength', 1, 100 )
+								.name( 'Wavelength' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveB.value[ 3 ] = v;
-            
-		} );
-            	waveBFolder.open();
+									water.material.uniforms.waveB.value[ 3 ] = v;
+						
+					} );
+							waveBFolder.open();
 
-            	const waveCFolder = gui.addFolder( 'Wave C' );
-            	waveCFolder
-            		.add( waves.C, 'direction', 0, 359 )
-            		.name( 'Direction' )
-            		.onChange( ( v ) => {
+							const waveCFolder = gui.addFolder( 'Wave C' );
+							waveCFolder
+								.add( waves.C, 'direction', 0, 359 )
+								.name( 'Direction' )
+								.onChange( ( v ) => {
 
-            			const x = ( v * Math.PI ) / 180;
-            			water.material.uniforms.waveC.value[ 0 ] = Math.sin( x );
-            			water.material.uniforms.waveC.value[ 1 ] = Math.cos( x );
-            
-		} );
-            	waveCFolder
-            		.add( waves.C, 'steepness', 0, 1, 0.1 )
-            		.name( 'Steepness' )
-            		.onChange( ( v ) => {
+									const x = ( v * Math.PI ) / 180;
+									water.material.uniforms.waveC.value[ 0 ] = Math.sin( x );
+									water.material.uniforms.waveC.value[ 1 ] = Math.cos( x );
+						
+					} );
+							waveCFolder
+								.add( waves.C, 'steepness', 0, 1, 0.1 )
+								.name( 'Steepness' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveC.value[ 2 ] = v;
-            
-		} );
-            	waveCFolder
-            		.add( waves.C, 'wavelength', 1, 100 )
-            		.name( 'Wavelength' )
-            		.onChange( ( v ) => {
+									water.material.uniforms.waveC.value[ 2 ] = v;
+						
+					} );
+							waveCFolder
+								.add( waves.C, 'wavelength', 1, 100 )
+								.name( 'Wavelength' )
+								.onChange( ( v ) => {
 
-            			water.material.uniforms.waveC.value[ 3 ] = v;
-            
-		} );
+									water.material.uniforms.waveC.value[ 3 ] = v;
+						
+					} );
             	waveCFolder.open();
             	//
 
@@ -478,33 +583,41 @@
 
             	clock = new THREE.Clock();
 
-            }
+			}
 
-            function onWindowResize() {
+			function onWindowResize() {
 
-            	camera.aspect = window.innerWidth / window.innerHeight;
-            	camera.updateProjectionMatrix();
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
 
-            	renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setSize( window.innerWidth, window.innerHeight );
 
-            }
+			}
 
-            function animate() {
+			function animate() {
 
-            	requestAnimationFrame( animate );
+				//requestAnimationFrame( animate );
             	delta = clock.getDelta();
             	water.material.uniforms[ 'time' ].value += delta;
             	updateBoxes( delta );
-            	render();
-            	stats.update();
+				updateRectangle( delta );
+				updateBoat( delta );
 
-            }
+				render();
+				stats.update();
 
-            function render() {
+			}
 
-            	renderer.render( scene, camera );
+			function render() {
 
-            }
-        </script>
-    </body>
+				const time = performance.now() * 0.001;
+				
+				//water.material.uniforms[ 'time' ].value += 0.250 / 60.0;
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
 </html>

@@ -66,12 +66,13 @@
 				sun = new THREE.Vector3();
 
 
-				const loader = new GLTFLoader().setPath( 'models/gltf/arrowBoat/glTF/' );
-				loader.load( 'arrowBoat.gltf', async function ( gltf ) {
+				const loader = new GLTFLoader().setPath( 'models/gltf/scoutsBoat/glTF/' );
+				loader.load( 'scoutsBoat.gltf', async function ( gltf ) {
 					const model = gltf.scene;
 					// wait until the model can be added to the scene without blocking due to shader compilation
 					await renderer.compileAsync( model, camera, scene );
 					model.position.set(0, -0.48, 0);
+                    model.rotation.set(0.022, 0, 0);
 					scene.add( model );
 
 					render();

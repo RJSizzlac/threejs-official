@@ -234,34 +234,34 @@
 			function updateRectangle( delta ) {
 
 				const t = water.material.uniforms[ 'time' ].value;
-				boats.forEach( ( c ) => {
+				rects.forEach( ( c ) => {
 
 					const waveInfo = getWaveInfo( c.position.x, c.position.z, t );
-					c.position.y = waveInfo.position.y - 0.48;
+					c.position.y = waveInfo.position.y;
 					const quat = new THREE.Quaternion().setFromEuler(
 						new THREE.Euler( waveInfo.normal.x, waveInfo.normal.y, waveInfo.normal.z )
 					);
 					c.quaternion.rotateTowards( quat, delta * 0.5 );
 				}) ;
 
-				}
+			}
 
 
 				//Boat Delta
 			function updateBoat( delta ) {
 
 				const t = water.material.uniforms[ 'time' ].value;
-				rects.forEach( ( d ) => {
+				boats.forEach( ( d ) => {
 
 					const waveInfo = getWaveInfo( d.position.x, d.position.z, t );
-					d.position.y = waveInfo.position.y;
+					d.position.y = waveInfo.position.y - 0.48;
 					const quat = new THREE.Quaternion().setFromEuler(
 						new THREE.Euler( waveInfo.normal.x, waveInfo.normal.y, waveInfo.normal.z )
 					);
 					d.quaternion.rotateTowards( quat, delta * 0.5 );
 				}) ;
 
-				}
+			}
 
 
 			init();
@@ -596,7 +596,6 @@
 
 			function animate() {
 
-				//requestAnimationFrame( animate );
             	delta = clock.getDelta();
             	water.material.uniforms[ 'time' ].value += delta;
             	updateBoxes( delta );

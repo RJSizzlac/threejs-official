@@ -174,7 +174,7 @@
             	//B: { direction: 30, steepness: 0.4, wavelength: 30 },  //Original Values
 				B: { direction: 30, steepness: 0, wavelength: 1 },
             	//C: { direction: 60, steepness: 0.4, wavelength: 15 },  //Original Values
-				C: { direction: 10, steepness: 0.1, wavelength: 19 },
+				C: { direction: 10, steepness: 0.02, wavelength: 19 },
             };
 
             function getWaveInfo( x, z, time ) {
@@ -256,7 +256,7 @@
 					const waveInfo = getWaveInfo( d.position.x, d.position.z, t );
 					d.position.y = waveInfo.position.y - 0.48;
 					const quat = new THREE.Quaternion().setFromEuler(
-						new THREE.Euler( waveInfo.normal.x, waveInfo.normal.y, waveInfo.normal.z )
+						new THREE.Euler( waveInfo.normal.x, 0, waveInfo.normal.z )
 					);
 					d.quaternion.rotateTowards( quat, delta * 0.5 );
 				}) ;
@@ -351,7 +351,7 @@
             		boxes.push( box );
 
             	}
-
+					
 
 				// Water
 
@@ -371,7 +371,7 @@
 						sunDirection: new THREE.Vector3(),
 						sunColor: 0xffffff,
 						waterColor: 0x001e0f,
-						distortionScale: 0.4,
+						distortionScale: 0.1,
 						fog: scene.fog !== undefined
 					}
 				);
@@ -503,7 +503,7 @@
             
 					} );
 							waveAFolder
-								.add( waves.A, 'steepness', 0, 1, 0.1 )
+								.add( waves.A, 'steepness', 0, 1, 0.01 )
 								.name( 'Steepness' )
 								.onChange( ( v ) => {
 
@@ -561,12 +561,12 @@
 						
 					} );
 							waveCFolder
-								.add( waves.C, 'steepness', 0, 1, 0.1 )
+								.add( waves.C, 'steepness', 0, 1, 0.01 )
 								.name( 'Steepness' )
 								.onChange( ( v ) => {
 
 									water.material.uniforms.waveC.value[ 2 ] = v;
-						
+						//steepness changes from 0.1 to 0.01
 					} );
 							waveCFolder
 								.add( waves.C, 'wavelength', 1, 100 )
@@ -598,8 +598,8 @@
 
             	delta = clock.getDelta();
             	water.material.uniforms[ 'time' ].value += delta;
-            	updateBoxes( delta );
-				updateRectangle( delta );
+            	//updateBoxes( delta );
+				//updateRectangle( delta );
 				updateBoat( delta );
 
 				render();
